@@ -10,10 +10,16 @@
 .codehilite { background: #f5f5f5; border-radius: 6px; padding: 12px 16px; overflow-x: auto; margin: 1em 0; }
 .codehilite pre { margin: 0; white-space: pre-wrap; }
 
+/* ── 自定义字体 ── */
+@font-face {
+  font-family: 'CustomFont';
+  src: url('{{ font_url }}') format('truetype');
+}
+
 /* ── 基础排版 ── */
 * { box-sizing: border-box; }
 body {
-  font-family: 'Noto Sans SC', 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-family: 'CustomFont', 'Noto Sans SC', 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
   font-size: 15px;
   line-height: 1.7;
   color: #2c3e50;
