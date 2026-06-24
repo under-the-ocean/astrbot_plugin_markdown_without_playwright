@@ -419,13 +419,11 @@ try {
         weasyprint = self._import_or_install("weasyprint")
 
         try:
-            pdf2image = self._import_or_install("pdf2image")
-            pdf_bytes = weasyprint.HTML(
+            doc = weasyprint.HTML(
                 string=html_str,
                 base_url=str(self.resource_dir),
-            ).write_pdf()
-            images = pdf2image.convert_from_bytes(pdf_bytes, dpi=200)
-            images[0].save(str(output_path), "PNG")
+            ).render()
+            doc.write_png(str(output_path))
             if output_path.exists() and output_path.stat().st_size > 0:
                 return output_path
         except Exception as e:
@@ -453,7 +451,6 @@ try {
             ("markdown", "Markdown"),
             ("jinja2", "Jinja2"),
             ("weasyprint", "weasyprint"),
-            ("pdf2image", "pdf2image"),
         ):
             self._import_or_install(module_name, pip_name)
         if self._math_engine == "mini_racer":
