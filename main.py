@@ -119,11 +119,11 @@ class MarkdownRenderPlugin(Star):
         )
         if img_path is None or not img_path.exists():
             yield event.image_result(
-                Path(self._write_error_image("Render failed. Check Markdown syntax."))
+                str(self._write_error_image("Render failed. Check Markdown syntax."))
             )
             return
 
-        yield event.image_result(img_path)
+        yield event.image_result(str(img_path))
 
     @filter.command("render_md")
     async def render_md_command(self, event: AstrMessageEvent):
@@ -133,7 +133,7 @@ class MarkdownRenderPlugin(Star):
 
         if not md_text:
             yield event.image_result(
-                Path(self._write_error_image("Please provide Markdown text"))
+                str(self._write_error_image("Please provide Markdown text"))
             )
             return
 
@@ -160,11 +160,11 @@ class MarkdownRenderPlugin(Star):
         )
         if img_path is None or not img_path.exists():
             yield event.image_result(
-                Path(self._write_error_image("Render failed. Check Markdown syntax."))
+                str(self._write_error_image("Render failed. Check Markdown syntax."))
             )
             return
 
-        yield event.image_result(img_path)
+        yield event.image_result(str(img_path))
 
     # ---------------------------------------------------------------- #
     #  Utilities                                                        #
