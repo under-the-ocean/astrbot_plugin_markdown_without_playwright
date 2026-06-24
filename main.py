@@ -35,15 +35,16 @@ class MarkdownRenderPlugin(Star):
             resource_dir=self._resource_dir,
             template_dir=self._template_dir,
             output_dir=self._output_dir,
-            math_engine=self.config.get("math_engine", "fallback"),
         )
 
     async def initialize(self):
         self._engine.initialize(
-            auto_install_dependencies=self.config.get("auto_install_dependencies", True)
+            auto_install_dependencies=self.config.get("auto_install_dependencies", True),
+            math_engine=self.config.get("math_engine", "fallback"),
         )
         self._sync_conf_schema()
         print("[MarkdownRender] Engine warmed up")
+        print(f"[MarkdownRender] Config: math_engine={self.config.get('math_engine', 'fallback')}, auto_render={self.config.get('auto_render', True)}")
 
     async def terminate(self):
         self._engine.terminate()

@@ -34,14 +34,13 @@ class MarkdownRenderEngine:
         resource_dir: Path,
         template_dir: Path,
         output_dir: Path,
-        math_engine: str = "fallback",
     ):
         self.resource_dir = resource_dir
         self.template_dir = template_dir
         self.output_dir = output_dir
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self._auto_install_dependencies = True
-        self._math_engine = self._normalize_math_engine(math_engine)
+        self._math_engine = "fallback"  # set in initialize()
 
         self._ctx = None
         self._math_available = False
@@ -60,7 +59,8 @@ class MarkdownRenderEngine:
         self._re_block = re.compile(r"\$\$(.+?)\$\$", re.DOTALL)
         self._re_inline = re.compile(r"(?<!\$)\$(?!\$)(.+?)(?<!\$)\$(?!\$)", re.DOTALL)
 
-    def initialize(self, auto_install_dependencies: bool = True):
+    def initialize(self, auto_install_dependencies: bool = True, math_engine="fallback"):
+        self._math_engine = self._normalize_math_engine(math_engine)
         self._auto_install_dependencies = auto_install_dependencies
         self._ensure_python_dependencies()
         self._ensure_file("katex.min.js")
@@ -128,19 +128,26 @@ class MarkdownRenderEngine:
     # ------------------------------------------------------------------ #
 
     def _init_math_engine(self):
+        print(f"[MarkdownRenderEngine] Initializing math engine: {self._math_engine}", file=sys.stderr)
         if self._math_engine == "mini_racer":
             self._init_mini_racer()
         elif self._math_engine == "nodejs":
             self._init_nodejs()
         else:
             self._init_fallback()
+        print(f"[MarkdownRenderEngine] Math engine ready: available={self._math_available}", file=sys.stderr)
 
     def _render_katex(self, expr: str, display_mode: bool) -> str:
         if self._math_engine == "mini_racer":
+            if not self._math_available:
+                print("[MarkdownRenderEngine] mini_racer unavailable, falling back to plain text", file=sys.stderr)
             return self._render_katex_v8(expr, display_mode)
         elif self._math_engine == "nodejs":
+            if not self._math_available:
+                print("[MarkdownRenderEngine] nodejs unavailable, falling back to plain text", file=sys.stderr)
             return self._render_katex_nodejs(expr, display_mode)
         else:
+            print("[MarkdownRenderEngine] Using fallback (plain-text LaTeX)", file=sys.stderr)
             return self._render_katex_fallback(expr, display_mode)
 
     # ------------------------------------------------------------------ #
@@ -156,6 +163,7 @@ class MarkdownRenderEngine:
                 js_code = file.read()
             self._ctx.eval(js_code)
             self._math_available = True
+            print("[MarkdownRenderEngine] mini_racer initialized OK (V8+KaTeX ready)", file=sys.stderr)
         except RuntimeError as exc:
             print(
                 f"[MarkdownRenderEngine] V8 runtime unavailable ({exc}); "
