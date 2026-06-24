@@ -468,15 +468,15 @@ try {
                     file=sys.stderr,
                 )
                 subprocess.check_call(
-                    [sys.executable, "-m", "pip", "install", "akracer"],
-                    stdout=sys.stdout,
-                    stderr=sys.stderr,
+                    [sys.executable, "-m", "pip", "install", "-q", "akracer"],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
                 )
             else:
                 subprocess.check_call(
-                    [sys.executable, "-m", "pip", "install", "mini-racer"],
-                    stdout=sys.stdout,
-                    stderr=sys.stderr,
+                    [sys.executable, "-m", "pip", "install", "-q", "mini-racer"],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
                 )
             return importlib.import_module("py_mini_racer")
 
@@ -488,9 +488,9 @@ try {
                 raise
             package_name = pip_name or module_name
             subprocess.check_call(
-                [sys.executable, "-m", "pip", "install", package_name],
-                stdout=sys.stdout,
-                stderr=sys.stderr,
+                [sys.executable, "-m", "pip", "install", "-q", package_name],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
             )
             return importlib.import_module(module_name)
 
