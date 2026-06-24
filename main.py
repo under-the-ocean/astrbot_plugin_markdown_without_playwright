@@ -127,9 +127,7 @@ class MarkdownRenderPlugin(Star):
 
     @filter.command("render_md")
     async def render_md_command(self, event: AstrMessageEvent):
-        msg = event.message_str.strip()
-        prefix = "/render_md"
-        md_text = msg[len(prefix):].strip() if msg.startswith(prefix) else msg
+        md_text = event.message_str.strip()
 
         if not md_text:
             err_path = self._write_error_image("Please provide Markdown text")
