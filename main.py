@@ -118,9 +118,9 @@ class MarkdownRenderPlugin(Star):
             font_name=font_name,
         )
         if img_path is None or not img_path.exists():
-            yield event.image_result(
-                str(self._write_error_image("Render failed. Check Markdown syntax."))
-            )
+            err_path = self._write_error_image("Render failed. Check Markdown syntax.")
+            if err_path:
+                yield event.image_result(err_path)
             return
 
         yield event.image_result(str(img_path))
@@ -132,9 +132,9 @@ class MarkdownRenderPlugin(Star):
         md_text = msg[len(prefix):].strip() if msg.startswith(prefix) else msg
 
         if not md_text:
-            yield event.image_result(
-                str(self._write_error_image("Please provide Markdown text"))
-            )
+            err_path = self._write_error_image("Please provide Markdown text")
+            if err_path:
+                yield event.image_result(err_path)
             return
 
         theme = self.config.get("default_theme", "default")
@@ -159,9 +159,9 @@ class MarkdownRenderPlugin(Star):
             font_name=font_name,
         )
         if img_path is None or not img_path.exists():
-            yield event.image_result(
-                str(self._write_error_image("Render failed. Check Markdown syntax."))
-            )
+            err_path = self._write_error_image("Render failed. Check Markdown syntax.")
+            if err_path:
+                yield event.image_result(err_path)
             return
 
         yield event.image_result(str(img_path))
@@ -178,12 +178,15 @@ class MarkdownRenderPlugin(Star):
 <body style=\"font-family:sans-serif;padding:40px;color:#c00;background:#fff;font-size:18px;\">
 <h2>{text}</h2>
 </body></html>"""
-        path = str(self._output_dir / "_error.png")
+        import uuid
+        path = str(self._output_dir / f"_error_{uuid.uuid4().hex[:8]}.png")
         try:
             HTML(string=html).write_png(path)
+            if Path(path).exists():
+                return path
         except Exception as e:
             print(f"[MarkdownRender] Error image failed: {e}")
-        return path
+        return ""
 
     def _normalize_theme(self, theme: str) -> str:
         themes = self._engine.available_themes()
