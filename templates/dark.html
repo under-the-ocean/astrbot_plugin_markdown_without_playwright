@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<style>
+/* ── KaTeX ── */
+{{ katex_css | safe }}
+
+/* ── 代码高亮 ── */
+.codehilite { background: #1e1e2e; border-radius: 6px; padding: 12px 16px; overflow-x: auto; margin: 1em 0; }
+.codehilite pre { margin: 0; white-space: pre-wrap; }
+
+/* ── 基础排版 ── */
+* { box-sizing: border-box; }
+body {
+  font-family: 'Noto Sans SC', 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-size: 15px;
+  line-height: 1.7;
+  color: #e0e0e0;
+  background: #1a1a2e;
+  margin: 0;
+  padding: 28px 32px;
+  width: {{ width }}px;
+}
+
+/* ── 标题 ── */
+h1 { font-size: 1.6em; color: #f0f0f0; margin: 1.2em 0 0.5em; border-bottom: 2px solid #50fa7b; padding-bottom: 6px; }
+h2 { font-size: 1.35em; color: #f0f0f0; margin: 1.1em 0 0.4em; border-bottom: 1px solid #333; padding-bottom: 4px; }
+h3 { font-size: 1.15em; color: #e0e0e0; margin: 1em 0 0.3em; }
+h4 { font-size: 1.05em; color: #e0e0e0; margin: 0.8em 0 0.3em; }
+
+/* ── 段落与列表 ── */
+p { margin: 0.6em 0; }
+ul, ol { margin: 0.4em 0; padding-left: 1.8em; }
+li { margin: 0.2em 0; }
+
+/* ── 引用 ── */
+blockquote {
+  margin: 0.8em 0;
+  padding: 6px 14px;
+  border-left: 4px solid #50fa7b;
+  background: #1e1e32;
+  color: #aaa;
+}
+
+/* ── 链接 ── */
+a { color: #50fa7b; text-decoration: none; }
+
+/* ── 表格 ── */
+table { border-collapse: collapse; margin: 0.8em 0; width: 100%; font-size: 0.95em; }
+th, td { border: 1px solid #444; padding: 8px 12px; text-align: left; }
+th { background: #2a2a3e; color: #e0e0e0; font-weight: 600; }
+tr:nth-child(even) { background: #1e1e30; }
+
+/* ── 代码 ── */
+code {
+  font-family: 'Cascadia Mono', 'Consolas', 'Courier New', monospace;
+  font-size: 0.9em;
+  background: #2a2a3e;
+  padding: 2px 6px;
+  border-radius: 3px;
+  color: #ff79c6;
+}
+pre {
+  font-family: 'Cascadia Mono', 'Consolas', 'Courier New', monospace;
+  font-size: 0.88em;
+  background: #1e1e2e;
+  border-radius: 6px;
+  padding: 12px 16px;
+  overflow-x: auto;
+  line-height: 1.5;
+}
+pre code {
+  background: none;
+  padding: 0;
+  color: inherit;
+  font-size: inherit;
+}
+
+/* ── 水平线 ── */
+hr { border: none; border-top: 1px solid #444; margin: 1.2em 0; }
+
+/* ── 图片 ── */
+img { max-width: 100%; border-radius: 4px; }
+
+/* ── 数学公式 ── */
+.katex { font-size: 1.05em; }
+.katex-display { margin: 0.8em 0; overflow-x: auto; overflow-y: hidden; }
+.katex-error { color: #e74c3c; font-size: 0.9em; }
+</style>
+</head>
+<body>
+{{ content | safe }}
+</body>
+</html>

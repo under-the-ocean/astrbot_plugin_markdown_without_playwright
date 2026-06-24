@@ -1,0 +1,5 @@
+name: astrbot_plugin_markdown_without_playwright
+display_name: Markdown图片渲染
+desc: 使用纯Python将Markdown（含数学公式）渲染为PNG图片，无需浏览器
+version: v1.1.0
+author: you

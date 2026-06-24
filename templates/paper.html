@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<style>
+{{ katex_css | safe }}
+
+@font-face {
+  font-family: 'ZhCN';
+  src: url('{{ font_url }}') format('truetype');
+}
+
+* { box-sizing: border-box; }
+body {
+  font-family: 'ZhCN', 'Georgia', serif;
+  background: #ece8df;
+  color: #2f241c;
+  margin: 0;
+  padding: 26px;
+  width: {{ width }}px;
+}
+
+.sheet {
+  background: #fcfaf5;
+  border: 1px solid #dfd6c7;
+  border-radius: 8px;
+  box-shadow: 0 10px 28px rgba(77, 60, 42, 0.12);
+  overflow: hidden;
+}
+
+.header {
+  padding: 18px 24px;
+  border-bottom: 1px solid #e7ddcf;
+  background: linear-gradient(180deg, #f8f2e7 0%, #fcfaf5 100%);
+}
+
+.meta-line {
+  font-size: 13px;
+  color: #705748;
+  margin: 4px 0;
+}
+
+.body {
+  padding: 26px 28px 30px;
+}
+
+h1 { font-size: 1.7em; color: #2b211a; margin: 0 0 0.7em; border-bottom: 2px solid #b6926b; padding-bottom: 6px; }
+h2 { font-size: 1.3em; color: #3a2d23; margin: 1em 0 0.45em; }
+h3, h4 { color: #4a382b; }
+p { margin: 0.68em 0; }
+ul, ol { padding-left: 1.7em; margin: 0.42em 0; }
+blockquote {
+  margin: 0.9em 0;
+  padding: 10px 14px;
+  border-left: 4px solid #b6926b;
+  background: #f6efe5;
+  color: #59463a;
+}
+table { width: 100%; border-collapse: collapse; margin: 0.9em 0; }
+th, td { border: 1px solid #dccfbe; padding: 8px 10px; text-align: left; }
+th { background: #f3e8d8; color: #382a20; }
+tr:nth-child(even) { background: #faf5ec; }
+code {
+  font-family: 'Cascadia Mono', 'Consolas', monospace;
+  background: #f2eadf;
+  color: #8b3d2f;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+pre {
+  background: #f4eee3;
+  border: 1px solid #e1d6c7;
+  border-radius: 8px;
+  padding: 14px 16px;
+  overflow-x: auto;
+}
+pre code { background: none; padding: 0; color: inherit; }
+a { color: #8a5b34; text-decoration: none; }
+hr { border: none; border-top: 1px solid #e1d6c7; margin: 1.4em 0; }
+img { max-width: 100%; border-radius: 6px; }
+.katex { font-size: 1.05em; }
+.katex-display { overflow-x: auto; overflow-y: hidden; margin: 0.85em 0; }
+</style>
+</head>
+<body>
+  <div class="sheet">
+    {% if show_meta %}
+    <div class="header">
+      <div class="meta-line">生成时间：{{ render_time }}</div>
+      <div class="meta-line">调用模型：{{ model_name or '未提供' }}</div>
+      <div class="meta-line">Token 消耗：总计 {{ total_tokens if total_tokens is not none else '-' }}，输入 {{ prompt_tokens if prompt_tokens is not none else '-' }}，输出 {{ completion_tokens if completion_tokens is not none else '-' }}</div>
+    </div>
+    {% endif %}
+    <div class="body">{{ content | safe }}</div>
+  </div>
+</body>
+</html>

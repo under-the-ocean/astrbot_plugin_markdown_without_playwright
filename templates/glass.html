@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<style>
+{{ katex_css | safe }}
+
+@font-face {
+  font-family: 'ZhCN';
+  src: url('{{ font_url }}') format('truetype');
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  font-family: 'ZhCN', 'Segoe UI', sans-serif;
+  color: #eaf2ff;
+  background:
+    radial-gradient(circle at top left, #4f46e5 0, transparent 28%),
+    radial-gradient(circle at top right, #0ea5e9 0, transparent 32%),
+    linear-gradient(135deg, #0b1120 0%, #111827 48%, #172554 100%);
+  padding: 32px;
+  width: {{ width }}px;
+}
+
+.shell {
+  background: rgba(15, 23, 42, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  box-shadow: 0 18px 60px rgba(15, 23, 42, 0.35);
+  overflow: hidden;
+}
+
+.hero {
+  padding: 24px 28px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.eyebrow {
+  font-size: 12px;
+  letter-spacing: 0;
+  color: #93c5fd;
+  margin-bottom: 10px;
+}
+
+.meta {
+  display: table;
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 10px 0;
+  margin: 0 -10px 14px;
+}
+
+.meta-item {
+  display: table-cell;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 12px 14px;
+  vertical-align: top;
+}
+
+.meta-label {
+  font-size: 11px;
+  color: #93c5fd;
+  margin-bottom: 6px;
+}
+
+.meta-value {
+  font-size: 14px;
+  color: #f8fbff;
+  word-break: break-word;
+}
+
+.content {
+  padding: 24px 28px 30px;
+}
+
+h1 { font-size: 1.7em; margin: 0 0 0.7em; color: #ffffff; }
+h2 { font-size: 1.3em; margin: 1em 0 0.45em; color: #dbeafe; }
+h3, h4 { color: #dbeafe; margin: 0.85em 0 0.35em; }
+p { margin: 0.65em 0; }
+ul, ol { padding-left: 1.7em; margin: 0.45em 0; }
+li { margin: 0.2em 0; }
+a { color: #7dd3fc; text-decoration: none; }
+blockquote {
+  margin: 0.9em 0;
+  padding: 10px 14px;
+  border-left: 4px solid #60a5fa;
+  background: rgba(255, 255, 255, 0.05);
+  color: #dbeafe;
+}
+table { width: 100%; border-collapse: collapse; margin: 0.9em 0; }
+th, td { border: 1px solid rgba(148, 163, 184, 0.28); padding: 8px 10px; text-align: left; }
+th { background: rgba(59, 130, 246, 0.18); color: #eff6ff; }
+tr:nth-child(even) { background: rgba(255, 255, 255, 0.03); }
+code {
+  font-family: 'Cascadia Mono', 'Consolas', monospace;
+  font-size: 0.9em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(15, 23, 42, 0.9);
+  color: #f9a8d4;
+}
+pre {
+  background: rgba(2, 6, 23, 0.95);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 8px;
+  padding: 14px 16px;
+  overflow-x: auto;
+  line-height: 1.55;
+}
+pre code { background: none; padding: 0; color: inherit; }
+hr { border: none; border-top: 1px solid rgba(255, 255, 255, 0.12); margin: 1.4em 0; }
+img { max-width: 100%; border-radius: 6px; }
+.katex { font-size: 1.05em; }
+.katex-display { overflow-x: auto; overflow-y: hidden; margin: 0.85em 0; }
+</style>
+</head>
+<body>
+  <div class="shell">
+    <div class="hero">
+      <div class="eyebrow">Markdown Render</div>
+      {% if show_meta %}
+      <div class="meta">
+        <div class="meta-item">
+          <div class="meta-label">渲染时间</div>
+          <div class="meta-value">{{ render_time }}</div>
+        </div>
+        <div class="meta-item">
+          <div class="meta-label">调用模型</div>
+          <div class="meta-value">{{ model_name or '未提供' }}</div>
+        </div>
+        <div class="meta-item">
+          <div class="meta-label">Token 消耗</div>
+          <div class="meta-value">总计 {{ total_tokens if total_tokens is not none else '-' }} / 输入 {{ prompt_tokens if prompt_tokens is not none else '-' }} / 输出 {{ completion_tokens if completion_tokens is not none else '-' }}</div>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+    <div class="content">{{ content | safe }}</div>
+  </div>
+</body>
+</html>

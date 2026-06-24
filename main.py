@@ -1,0 +1,189 @@
+"""
+astrbot_plugin_markdown_without_playwright - Markdown to PNG rendering plugin
+
+Features:
+  - Pure Python rendering pipeline, no browser required
+  - Math formula support (KaTeX engine, $$ block / $ inline)
+  - Tables, code blocks (syntax highlighting), quotes, links
+  - Light/dark themes
+"""
+
+from pathlib import Path
+
+from astrbot.api.event import filter
+from astrbot.api.star import Star
+from astrbot.api.all import AstrMessageEvent
+
+from .core.engine import MarkdownRenderEngine
+
+
+class MarkdownRenderPlugin(Star):
+    """AstrBot plugin: Markdown to PNG image rendering."""
+
+    def __init__(self, context: "Register"):
+        super().__init__(context)
+        self.config = getattr(context, "config", {}) or {}
+        self._base_dir = Path(__file__).parent.resolve()
+        self._resource_dir = self._base_dir / "resource"
+        self._template_dir = self._base_dir / "templates"
+        self._output_dir = self._base_dir / "data"
+        self._output_dir.mkdir(parents=True, exist_ok=True)
+
+        self._engine = MarkdownRenderEngine(
+            resource_dir=self._resource_dir,
+            template_dir=self._template_dir,
+            output_dir=self._output_dir,
+        )
+
+    async def initialize(self):
+        self._engine.initialize(
+            auto_install_dependencies=self.config.get("auto_install_dependencies", True)
+        )
+        self._sync_conf_schema()
+        print("[MarkdownRender] Engine warmed up")
+
+    async def terminate(self):
+        self._engine.terminate()
+        if self._output_dir.exists():
+            for file_path in self._output_dir.iterdir():
+                if file_path.suffix == ".png":
+                    file_path.unlink()
+        print("[MarkdownRender] Engine shut down, temp files cleaned")
+
+    @filter.llm_tool("markdown_render")
+    async def markdown_render(self, event: AstrMessageEvent, md_text: str, theme: str = "default"):
+        theme = self._normalize_theme(theme or self.config.get("default_theme", "default"))
+        width = int(self.config.get("default_width", 800))
+        model_name = self.config.get("display_model_name", "")
+        font_name = self._normalize_font(self.config.get("default_font", "zh-cn.ttf"))
+
+        img_path = self._engine.render(
+            md_text,
+            theme=theme,
+            width=width,
+            model_name=model_name,
+            font_name=font_name,
+        )
+        if img_path is None or not img_path.exists():
+            yield event.image_result(
+                Path(self._write_error_image("Render failed. Check Markdown syntax."))
+            )
+            return
+
+        yield event.image_result(img_path)
+
+    @filter.command("render_md")
+    async def render_md_command(self, event: AstrMessageEvent):
+        msg = event.message_str.strip()
+        prefix = "/render_md"
+        md_text = msg[len(prefix):].strip() if msg.startswith(prefix) else msg
+
+        if not md_text:
+            yield event.image_result(
+                Path(self._write_error_image("Please provide Markdown text"))
+            )
+            return
+
+        theme = self.config.get("default_theme", "default")
+        for candidate in self._engine.available_themes():
+            flag = f" -{candidate}"
+            if flag in md_text:
+                theme = candidate
+                md_text = md_text.replace(flag, "")
+                break
+
+        md_text = md_text.strip()
+        theme = self._normalize_theme(theme)
+        width = int(self.config.get("default_width", 800))
+        model_name = self.config.get("display_model_name", "")
+        font_name = self._normalize_font(self.config.get("default_font", "zh-cn.ttf"))
+
+        img_path = self._engine.render(
+            md_text,
+            theme=theme,
+            width=width,
+            model_name=model_name,
+            font_name=font_name,
+        )
+        if img_path is None or not img_path.exists():
+            yield event.image_result(
+                Path(self._write_error_image("Render failed. Check Markdown syntax."))
+            )
+            return
+
+        yield event.image_result(img_path)
+
+    def _write_error_image(self, text: str) -> str:
+        from weasyprint import HTML
+
+        html = f"""<!DOCTYPE html>
+<html><meta charset=\"utf-8\">
+<body style=\"font-family:sans-serif;padding:40px;color:#c00;background:#fff;font-size:18px;\">
+<h2>{text}</h2>
+</body></html>"""
+        path = str(self._output_dir / "_error.png")
+        try:
+            HTML(string=html).write_png(path)
+        except Exception as e:
+            print(f"[MarkdownRender] Error image failed: {e}")
+        return path
+
+    def _normalize_theme(self, theme: str) -> str:
+        themes = self._engine.available_themes()
+        if theme not in themes:
+            return "default" if "default" in themes else themes[0]
+        return theme
+
+    def _normalize_font(self, font_name: str) -> str:
+        fonts = self._engine.available_fonts()
+        if font_name in fonts:
+            return font_name
+        if "zh-cn.ttf" in fonts:
+            return "zh-cn.ttf"
+        return fonts[0] if fonts else ""
+
+    def _sync_conf_schema(self):
+        schema_path = self._base_dir / "_conf_schema.json"
+        themes = self._engine.available_themes()
+        fonts = self._engine.available_fonts()
+        default_theme = self._normalize_theme(self.config.get("default_theme", "default"))
+        default_font = self._normalize_font(self.config.get("default_font", "zh-cn.ttf"))
+        schema = {
+            "default_theme": {
+                "description": "默认主题，自动扫描 templates 目录",
+                "type": "string",
+                "hint": "下拉选择默认渲染模板",
+                "default": default_theme,
+                "options": themes,
+            },
+            "default_font": {
+                "description": "默认字体，自动扫描 resource 目录",
+                "type": "string",
+                "hint": "下拉选择默认字体文件",
+                "default": default_font,
+                "options": fonts,
+            },
+            "default_width": {
+                "description": "图片渲染宽度，单位 px",
+                "type": "int",
+                "hint": "推荐 720-1200",
+                "default": 800,
+            },
+            "display_model_name": {
+                "description": "默认显示的模型名",
+                "type": "string",
+                "hint": "运行时拿不到模型名时使用",
+                "default": "",
+            },
+            "auto_install_dependencies": {
+                "description": "初始化时自动安装 Python 依赖",
+                "type": "bool",
+                "hint": "依赖由 requirements.txt 管理时可关闭",
+                "default": True,
+            },
+        }
+        import json
+        schema_path.write_text(
+            json.dumps(schema, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )

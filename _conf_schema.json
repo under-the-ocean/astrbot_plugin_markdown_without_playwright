@@ -1,0 +1,43 @@
+{
+  "default_theme": {
+    "description": "默认主题，自动扫描 templates 目录",
+    "type": "string",
+    "hint": "下拉选择默认渲染模板",
+    "default": "default",
+    "options": [
+      "aurora",
+      "dark",
+      "default",
+      "glass",
+      "paper"
+    ]
+  },
+  "default_font": {
+    "description": "默认字体，自动扫描 resource 目录",
+    "type": "string",
+    "hint": "下拉选择默认字体文件",
+    "default": "zh-cn.ttf",
+    "options": [
+      "default_font.ttf",
+      "zh-cn.ttf"
+    ]
+  },
+  "default_width": {
+    "description": "图片渲染宽度，单位 px",
+    "type": "int",
+    "hint": "推荐 720-1200",
+    "default": 800
+  },
+  "display_model_name": {
+    "description": "默认显示的模型名",
+    "type": "string",
+    "hint": "运行时拿不到模型名时使用",
+    "default": ""
+  },
+  "auto_install_dependencies": {
+    "description": "初始化时自动安装 Python 依赖",
+    "type": "bool",
+    "hint": "依赖由 requirements.txt 管理时可关闭",
+    "default": true
+  }
+}
