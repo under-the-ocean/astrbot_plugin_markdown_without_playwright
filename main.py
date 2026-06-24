@@ -6,6 +6,7 @@ Features:
   - Math formula support (KaTeX engine, $$ block / $ inline)
   - Tables, code blocks (syntax highlighting), quotes, links
   - Light/dark themes
+  - Auto-intercept AI responses and convert to images
 """
 
 from pathlib import Path
@@ -13,6 +14,7 @@ from pathlib import Path
 from astrbot.api.event import filter
 from astrbot.api.star import Star
 from astrbot.api.all import AstrMessageEvent
+from astrbot.api.message_components import Image, Plain
 
 from .core.engine import MarkdownRenderEngine
 
@@ -50,6 +52,56 @@ class MarkdownRenderPlugin(Star):
                 if file_path.suffix == ".png":
                     file_path.unlink()
         print("[MarkdownRender] Engine shut down, temp files cleaned")
+
+    # ---------------------------------------------------------------- #
+    #  Auto-intercept: convert AI text responses to images              #
+    # ---------------------------------------------------------------- #
+
+    @filter.on_decorating_result()
+    async def auto_render_hook(self, event: AstrMessageEvent):
+        if not self.config.get("auto_render", True):
+            return
+
+        result = event.get_result()
+        if result is None or not result.is_llm_result():
+            return
+
+        # Only handle pure-text LLM responses (no existing images/voice)
+        if not result.chain or any(not isinstance(c, Plain) for c in result.chain):
+            return
+
+        md_text = " ".join(c.text for c in result.chain)
+        if not md_text or not md_text.strip():
+            return
+
+        # Threshold & math-formula gating
+        threshold = int(self.config.get("auto_render_threshold", 200))
+        force_math = self.config.get("auto_render_math", True)
+        over_threshold = len(md_text) > threshold
+        has_math = "$$" in md_text or (md_text.count("$") >= 2)
+
+        if not over_threshold and not (force_math and has_math):
+            return
+
+        theme = self._normalize_theme(self.config.get("default_theme", "default"))
+        width = int(self.config.get("default_width", 800))
+        font_name = self._normalize_font(self.config.get("default_font", "zh-cn.ttf"))
+
+        img_path = self._engine.render(
+            md_text,
+            theme=theme,
+            width=width,
+            font_name=font_name,
+        )
+        if img_path is None or not img_path.exists():
+            return
+
+        result.chain = [Image.fromFileSystem(str(img_path))]
+        result.use_t2i(False)
+
+    # ---------------------------------------------------------------- #
+    #  LLM tool / slash command handlers                                #
+    # ---------------------------------------------------------------- #
 
     @filter.llm_tool("markdown_render")
     async def markdown_render(self, event: AstrMessageEvent, md_text: str, theme: str = "default"):
@@ -114,6 +166,10 @@ class MarkdownRenderPlugin(Star):
 
         yield event.image_result(img_path)
 
+    # ---------------------------------------------------------------- #
+    #  Utilities                                                        #
+    # ---------------------------------------------------------------- #
+
     def _write_error_image(self, text: str) -> str:
         from weasyprint import HTML
 
@@ -150,6 +206,24 @@ class MarkdownRenderPlugin(Star):
         default_theme = self._normalize_theme(self.config.get("default_theme", "default"))
         default_font = self._normalize_font(self.config.get("default_font", "zh-cn.ttf"))
         schema = {
+            "auto_render": {
+                "description": "自动拦截 AI 回复并转换为图片",
+                "type": "bool",
+                "hint": "开启后 AI 文本回复自动渲染为 PNG 图片发送",
+                "default": True,
+            },
+            "auto_render_threshold": {
+                "description": "自动转图片的字数阈值",
+                "type": "int",
+                "hint": "超过此字数的 AI 回复自动转换为图片（推荐 200）",
+                "default": 200,
+            },
+            "auto_render_math": {
+                "description": "含公式时强制转图片",
+                "type": "bool",
+                "hint": "AI 回复包含 $$ 数学公式时忽略字数阈值直接转图片",
+                "default": True,
+            },
             "math_engine": {
                 "description": "数学公式渲染引擎",
                 "type": "string",
