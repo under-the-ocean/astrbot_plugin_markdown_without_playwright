@@ -86,13 +86,11 @@ class MarkdownRenderPlugin(Star):
             return
 
         theme = self._normalize_theme(self.config.get("default_theme", "default"))
-        width = int(self.config.get("default_width", 800))
         font_name = self._normalize_font(self.config.get("default_font", "zh-cn.ttf"))
 
         img_path = self._engine.render(
             md_text,
             theme=theme,
-            width=width,
             font_name=font_name,
         )
         if img_path is None or not img_path.exists():
@@ -108,14 +106,12 @@ class MarkdownRenderPlugin(Star):
     @filter.llm_tool("markdown_render")
     async def markdown_render(self, event: AstrMessageEvent, md_text: str, theme: str = "default"):
         theme = self._normalize_theme(theme or self.config.get("default_theme", "default"))
-        width = int(self.config.get("default_width", 800))
         model_name = self.config.get("display_model_name", "")
         font_name = self._normalize_font(self.config.get("default_font", "zh-cn.ttf"))
 
         img_path = self._engine.render(
             md_text,
             theme=theme,
-            width=width,
             model_name=model_name,
             font_name=font_name,
         )
@@ -147,14 +143,12 @@ class MarkdownRenderPlugin(Star):
 
         md_text = md_text.strip()
         theme = self._normalize_theme(theme)
-        width = int(self.config.get("default_width", 800))
         model_name = self.config.get("display_model_name", "")
         font_name = self._normalize_font(self.config.get("default_font", "zh-cn.ttf"))
 
         img_path = self._engine.render(
             md_text,
             theme=theme,
-            width=width,
             model_name=model_name,
             font_name=font_name,
         )
@@ -247,12 +241,6 @@ class MarkdownRenderPlugin(Star):
                 "hint": "下拉选择默认字体文件",
                 "default": default_font,
                 "options": fonts,
-            },
-            "default_width": {
-                "description": "图片渲染宽度，单位 px",
-                "type": "int",
-                "hint": "推荐 720-1200",
-                "default": 800,
             },
             "display_model_name": {
                 "description": "默认显示的模型名",

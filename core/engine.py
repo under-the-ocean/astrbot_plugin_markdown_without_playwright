@@ -93,7 +93,6 @@ class MarkdownRenderEngine:
         self,
         md_text: str,
         theme: str = "default",
-        width: int = 800,
         model_name: str = "",
         total_tokens: Optional[int] = None,
         prompt_tokens: Optional[int] = None,
@@ -113,7 +112,6 @@ class MarkdownRenderEngine:
         full_html = self._apply_template(
             html_body,
             theme,
-            width,
             model_name=model_name,
             total_tokens=total_tokens,
             prompt_tokens=prompt_tokens,
@@ -370,7 +368,6 @@ try {
         self,
         body: str,
         theme: str,
-        width: int,
         model_name: str = "",
         total_tokens: Optional[int] = None,
         prompt_tokens: Optional[int] = None,
@@ -398,7 +395,6 @@ try {
 
         return tpl.render(
             content=body,
-            width=width,
             katex_css=katex_style,
             font_url=font_url,
             render_time=timestamp,
