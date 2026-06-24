@@ -259,7 +259,7 @@ class MarkdownRenderEngine:
 
     def _import_js_runtime(self):
         try:
-            return importlib.import_module("mini_racer")
+            return importlib.import_module("py_mini_racer")
         except Exception:
             if not self._auto_install_dependencies:
                 raise
