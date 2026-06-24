@@ -411,15 +411,6 @@ try {
         weasyprint = self._import_or_install("weasyprint")
 
         try:
-            weasyprint.HTML(string=html_str, base_url=str(self.resource_dir)).write_png(
-                str(output_path)
-            )
-            if output_path.exists() and output_path.stat().st_size > 0:
-                return output_path
-        except Exception:
-            pass
-
-        try:
             pdf2image = self._import_or_install("pdf2image")
             pdf_bytes = weasyprint.HTML(
                 string=html_str,

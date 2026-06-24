@@ -169,17 +169,20 @@ class MarkdownRenderPlugin(Star):
     # ---------------------------------------------------------------- #
 
     def _write_error_image(self, text: str) -> str:
+        import uuid
         from weasyprint import HTML
+        from pdf2image import convert_from_bytes
 
         html = f"""<!DOCTYPE html>
 <html><meta charset=\"utf-8\">
 <body style=\"font-family:sans-serif;padding:40px;color:#c00;background:#fff;font-size:18px;\">
 <h2>{text}</h2>
 </body></html>"""
-        import uuid
         path = str(self._output_dir / f"_error_{uuid.uuid4().hex[:8]}.png")
         try:
-            HTML(string=html).write_png(path)
+            pdf_bytes = HTML(string=html).write_pdf()
+            images = convert_from_bytes(pdf_bytes, dpi=150)
+            images[0].save(path, "PNG")
             if Path(path).exists():
                 return path
         except Exception as e:
