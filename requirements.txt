@@ -1,5 +1,4 @@
 Markdown
 Jinja2
-mini-racer
 weasyprint
 pdf2image

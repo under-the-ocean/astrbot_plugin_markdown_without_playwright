@@ -33,6 +33,7 @@ class MarkdownRenderPlugin(Star):
             resource_dir=self._resource_dir,
             template_dir=self._template_dir,
             output_dir=self._output_dir,
+            math_engine=self.config.get("math_engine", "fallback"),
         )
 
     async def initialize(self):
@@ -149,6 +150,13 @@ class MarkdownRenderPlugin(Star):
         default_theme = self._normalize_theme(self.config.get("default_theme", "default"))
         default_font = self._normalize_font(self.config.get("default_font", "zh-cn.ttf"))
         schema = {
+            "math_engine": {
+                "description": "数学公式渲染引擎",
+                "type": "string",
+                "hint": "fallback=纯文本(零依赖) | mini_racer=V8编译 | nodejs=Node.js子进程",
+                "default": "fallback",
+                "options": ["fallback", "mini_racer", "nodejs"],
+            },
             "default_theme": {
                 "description": "默认主题，自动扫描 templates 目录",
                 "type": "string",

@@ -3,13 +3,19 @@ core/engine.py - Markdown to PNG rendering engine
 
 Pipeline:
   1. Extract $$...$$ and $...$ math formulas
-  2. Render formulas to HTML via MiniRacer + KaTeX
+  2. Render formulas to HTML via configurable math engine
   3. Convert Markdown to HTML (tables, code blocks, highlighting)
   4. Assemble full HTML with Jinja2 template + theme variables
   5. WeasyPrint renders HTML to PNG
+
+Math engines:
+  - fallback:   Plain-text LaTeX source, no external dependency (default)
+  - mini_racer: Python V8 binding (needs compiled native lib)
+  - nodejs:     Node.js subprocess (needs `node` on PATH)
 """
 
 import importlib
+import platform
 import re
 import subprocess
 import sys
@@ -21,14 +27,28 @@ from typing import Optional
 class MarkdownRenderEngine:
     """Pure Python Markdown to PNG rendering engine, singleton reuse."""
 
-    def __init__(self, resource_dir: Path, template_dir: Path, output_dir: Path):
+    MATH_ENGINES = ("fallback", "mini_racer", "nodejs")
+
+    def __init__(
+        self,
+        resource_dir: Path,
+        template_dir: Path,
+        output_dir: Path,
+        math_engine: str = "fallback",
+    ):
         self.resource_dir = resource_dir
         self.template_dir = template_dir
         self.output_dir = output_dir
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self._auto_install_dependencies = True
+        self._math_engine = self._normalize_math_engine(math_engine)
 
         self._ctx = None
+        self._math_available = False
+
+        # Node.js subprocess paths
+        self._node_bin = "node"
+        self._node_script_path: Optional[Path] = None
 
         self._ensure_python_dependencies()
         jinja2 = self._import_or_install("jinja2")
@@ -44,7 +64,7 @@ class MarkdownRenderEngine:
         self._auto_install_dependencies = auto_install_dependencies
         self._ensure_python_dependencies()
         self._ensure_file("katex.min.js")
-        self._init_v8()
+        self._init_math_engine()
 
     def terminate(self):
         if self._ctx is not None:
@@ -53,6 +73,11 @@ class MarkdownRenderEngine:
             except Exception:
                 pass
             self._ctx = None
+        if self._node_script_path is not None and self._node_script_path.exists():
+            try:
+                self._node_script_path.unlink()
+            except Exception:
+                pass
 
     def available_themes(self) -> list[str]:
         return sorted(path.stem for path in self.template_dir.glob("*.html"))
@@ -98,6 +123,206 @@ class MarkdownRenderEngine:
         )
         return self._render_png(full_html, theme)
 
+    # ------------------------------------------------------------------ #
+    #  Math engine dispatch                                               #
+    # ------------------------------------------------------------------ #
+
+    def _init_math_engine(self):
+        if self._math_engine == "mini_racer":
+            self._init_mini_racer()
+        elif self._math_engine == "nodejs":
+            self._init_nodejs()
+        else:
+            self._init_fallback()
+
+    def _render_katex(self, expr: str, display_mode: bool) -> str:
+        if self._math_engine == "mini_racer":
+            return self._render_katex_v8(expr, display_mode)
+        elif self._math_engine == "nodejs":
+            return self._render_katex_nodejs(expr, display_mode)
+        else:
+            return self._render_katex_fallback(expr, display_mode)
+
+    # ------------------------------------------------------------------ #
+    #  mini_racer (V8) mode                                               #
+    # ------------------------------------------------------------------ #
+
+    def _init_mini_racer(self):
+        try:
+            mini_racer_module = self._import_js_runtime()
+            self._ctx = mini_racer_module.MiniRacer()
+            katex_path = self.resource_dir / "katex.min.js"
+            with open(katex_path, "r", encoding="utf-8") as file:
+                js_code = file.read()
+            self._ctx.eval(js_code)
+            self._math_available = True
+        except RuntimeError as exc:
+            print(
+                f"[MarkdownRenderEngine] V8 runtime unavailable ({exc}); "
+                f"math rendering degraded",
+                file=sys.stderr,
+            )
+            self._ctx = None
+            self._math_available = False
+
+    def _render_katex_v8(self, expr: str, display_mode: bool) -> str:
+        if not self._math_available:
+            return self._render_katex_fallback(expr, display_mode)
+
+        safe_expr = (
+            expr.replace("\\", "\\\\")
+            .replace("'", "\\'")
+            .replace("\n", "\\n")
+        )
+        js = (
+            f"katex.renderToString('{safe_expr}', "
+            f"{{displayMode: {'true' if display_mode else 'false'}, throwOnError: false}})"
+        )
+        try:
+            return str(self._ctx.eval(js))
+        except Exception:
+            return f'<span class="katex-error" style="color:red">{expr}</span>'
+
+    # ------------------------------------------------------------------ #
+    #  Node.js subprocess mode                                            #
+    # ------------------------------------------------------------------ #
+
+    def _init_nodejs(self):
+        # Check Node.js availability
+        try:
+            subprocess.run(
+                [self._node_bin, "--version"],
+                capture_output=True,
+                timeout=10,
+            )
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            print(
+                "[MarkdownRenderEngine] `node` not found on PATH; "
+                "math rendering degraded",
+                file=sys.stderr,
+            )
+            self._math_available = False
+            return
+
+        # Write the JS helper script to temp location
+        self._node_script_path = self.output_dir / "_katex_render.js"
+        js_code = self._generate_node_script()
+        self._node_script_path.write_text(js_code, encoding="utf-8")
+
+        # Smoke-test
+        test_expr = "a+b"
+        result = self._call_node_katex(test_expr, display_mode=False)
+        if result is None:
+            print(
+                "[MarkdownRenderEngine] Node.js KaTeX execution failed; "
+                "math rendering degraded",
+                file=sys.stderr,
+            )
+            self._math_available = False
+        else:
+            self._math_available = True
+
+    def _generate_node_script(self) -> str:
+        """Generate a self-contained Node.js script that renders KaTeX formulas.
+
+        The script loads katex.min.js as a string and evaluates it in a sandboxed
+        VM context.  It expects three arguments: katex_path, formula, display_mode.
+        """
+        return """// Auto-generated KaTeX render helper - do not edit
+const fs = require('fs');
+const vm = require('vm');
+
+const [,, katexPath, formula, displayModeRaw] = process.argv;
+const displayMode = displayModeRaw === 'true';
+
+const code = fs.readFileSync(katexPath, 'utf-8');
+
+// katex.min.js is a UMD/global bundle; evaluate in a fresh sandbox
+const sandbox = { katex: null, console: console };
+vm.createContext(sandbox);
+vm.runInContext(code, sandbox);
+
+if (typeof sandbox.katex !== 'object' || typeof sandbox.katex.renderToString !== 'function') {
+    // Retry with a bare context (some builds attach to `this`)
+    const alt = {};
+    vm.createContext(alt);
+    vm.runInContext(code, alt, { timeout: 5000 });
+    sandbox.katex = alt.katex;
+}
+
+if (typeof sandbox.katex !== 'object' || typeof sandbox.katex.renderToString !== 'function') {
+    console.error('KaTeX module not found after loading');
+    process.exit(1);
+}
+
+try {
+    const html = sandbox.katex.renderToString(formula, {
+        displayMode: displayMode,
+        throwOnError: false,
+    });
+    console.log(html);
+} catch (e) {
+    console.error(e.message);
+    process.exit(1);
+}
+"""
+
+    def _call_node_katex(self, expr: str, display_mode: bool) -> Optional[str]:
+        """Invoke the Node.js KaTeX helper.  Returns HTML on success, None on failure."""
+        if self._node_script_path is None or not self._node_script_path.exists():
+            return None
+
+        katex_abs = str(self.resource_dir / "katex.min.js")
+        try:
+            result = subprocess.run(
+                [
+                    self._node_bin,
+                    str(self._node_script_path),
+                    katex_abs,
+                    expr,
+                    "true" if display_mode else "false",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=15,
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                return result.stdout.strip()
+            return None
+        except (subprocess.TimeoutExpired, OSError):
+            return None
+
+    def _render_katex_nodejs(self, expr: str, display_mode: bool) -> str:
+        if not self._math_available:
+            return self._render_katex_fallback(expr, display_mode)
+
+        html = self._call_node_katex(expr, display_mode)
+        if html is not None:
+            return html
+
+        # Subprocess call failed - degrade to plain text for this formula
+        return f'<span class="katex-error" style="color:red">{expr}</span>'
+
+    # ------------------------------------------------------------------ #
+    #  Fallback mode (plain-text LaTeX source)                            #
+    # ------------------------------------------------------------------ #
+
+    def _init_fallback(self):
+        self._math_available = False
+
+    def _render_katex_fallback(self, expr: str, display_mode: bool) -> str:
+        tag = "div" if display_mode else "span"
+        cls = (
+            "katex-fallback katex-fallback--block"
+            if display_mode
+            else "katex-fallback katex-fallback--inline"
+        )
+        return f'<{tag} class="{cls}">{expr}</{tag}>'
+
+    # ------------------------------------------------------------------ #
+    #  Markdown -> HTML & template assembly                                #
+    # ------------------------------------------------------------------ #
+
     def _extract_and_render_formulas(self, text: str) -> tuple:
         placeholders = {}
 
@@ -118,25 +343,6 @@ class MarkdownRenderEngine:
         text = self._re_block.sub(_replace_block, text)
         text = self._re_inline.sub(_replace_inline, text)
         return text, placeholders
-
-    def _render_katex(self, expr: str, display_mode: bool) -> str:
-        if self._ctx is None:
-            self._ensure_file("katex.min.js")
-            self._init_v8()
-
-        safe_expr = (
-            expr.replace("\\", "\\\\")
-            .replace("'", "\\'")
-            .replace("\n", "\\n")
-        )
-        js = (
-            f"katex.renderToString('{safe_expr}', "
-            f"{{displayMode: {'true' if display_mode else 'false'}, throwOnError: false}})"
-        )
-        try:
-            return str(self._ctx.eval(js))
-        except Exception:
-            return f'<span class="katex-error" style="color:red">{expr}</span>'
 
     def _md_to_html(self, text: str) -> str:
         markdown_module = self._import_or_install("markdown")
@@ -227,6 +433,10 @@ class MarkdownRenderEngine:
             print(f"[MarkdownRenderEngine] PNG render failed: {e}", file=sys.stderr)
         return None
 
+    # ------------------------------------------------------------------ #
+    #  Utilities                                                          #
+    # ------------------------------------------------------------------ #
+
     def _ensure_file(self, filename: str):
         path = self.resource_dir / filename
         if not path.exists():
@@ -239,14 +449,6 @@ class MarkdownRenderEngine:
                 return file.read()
         return ""
 
-    def _init_v8(self):
-        mini_racer_module = self._import_js_runtime()
-        self._ctx = mini_racer_module.MiniRacer()
-        katex_path = self.resource_dir / "katex.min.js"
-        with open(katex_path, "r", encoding="utf-8") as file:
-            js_code = file.read()
-        self._ctx.eval(js_code)
-
     def _ensure_python_dependencies(self):
         for module_name, pip_name in (
             ("markdown", "Markdown"),
@@ -255,20 +457,32 @@ class MarkdownRenderEngine:
             ("pdf2image", "pdf2image"),
         ):
             self._import_or_install(module_name, pip_name)
-        self._import_js_runtime()
+        if self._math_engine == "mini_racer":
+            self._import_js_runtime()
 
     def _import_js_runtime(self):
         try:
             return importlib.import_module("py_mini_racer")
-        except Exception:
+        except ImportError:
             if not self._auto_install_dependencies:
                 raise
-            subprocess.check_call(
-                [sys.executable, "-m", "pip", "install", "mini-racer"],
-                stdout=sys.stdout,
-                stderr=sys.stderr,
-            )
-            return importlib.import_module("mini_racer")
+            if platform.machine() in ("aarch64", "arm64"):
+                print(
+                    "[MarkdownRenderEngine] ARM64 detected, installing akracer",
+                    file=sys.stderr,
+                )
+                subprocess.check_call(
+                    [sys.executable, "-m", "pip", "install", "akracer"],
+                    stdout=sys.stdout,
+                    stderr=sys.stderr,
+                )
+            else:
+                subprocess.check_call(
+                    [sys.executable, "-m", "pip", "install", "mini-racer"],
+                    stdout=sys.stdout,
+                    stderr=sys.stderr,
+                )
+            return importlib.import_module("py_mini_racer")
 
     def _import_or_install(self, module_name: str, pip_name: Optional[str] = None):
         try:
@@ -283,3 +497,14 @@ class MarkdownRenderEngine:
                 stderr=sys.stderr,
             )
             return importlib.import_module(module_name)
+
+    def _normalize_math_engine(self, value: str) -> str:
+        value = value.strip().lower()
+        if value not in self.MATH_ENGINES:
+            print(
+                f"[MarkdownRenderEngine] Unknown math_engine '{value}'; "
+                f"falling back to 'fallback'",
+                file=sys.stderr,
+            )
+            return "fallback"
+        return value
