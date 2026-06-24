@@ -15,16 +15,17 @@ from astrbot.api.event import filter
 from astrbot.api.star import Star
 from astrbot.api.all import AstrMessageEvent
 from astrbot.api.message_components import Image, Plain
+from astrbot.core.config.astrbot_config import AstrBotConfig
 
 from .core.engine import MarkdownRenderEngine
-
 
 class MarkdownRenderPlugin(Star):
     """AstrBot plugin: Markdown to PNG image rendering."""
 
-    def __init__(self, context: "Register"):
-        super().__init__(context)
-        self.config = getattr(context, "config", {}) or {}
+    def __init__(self, context: "Register", config: AstrBotConfig = None):
+        super().__init__(context, config)
+        self.config = config if config else getattr(context, "config", {}) or {}
+
         self._base_dir = Path(__file__).parent.resolve()
         self._resource_dir = self._base_dir / "resource"
         self._template_dir = self._base_dir / "templates"
