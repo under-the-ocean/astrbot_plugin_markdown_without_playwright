@@ -5,12 +5,28 @@
 <style>
 {{ katex_css | safe }}
 
+/* ── 溢出控制（WeasyPrint 不认 overflow-x，靠断词兜底）── */
+body {
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+pre, code, .katex-display, table {
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+td, th {
+  word-break: break-all;
+}
+table {
+  table-layout: fixed;
+}
+
 @font-face {
   font-family: 'ZhCN';
   src: url('{{ font_url }}') format('truetype');
 }
 
-* { box-sizing: border-box; }
+* { box-sizing: border-box; } html { overflow: hidden; }
 html, body { margin: 0; }
 body {
   font-family: 'ZhCN', 'Segoe UI', sans-serif;
